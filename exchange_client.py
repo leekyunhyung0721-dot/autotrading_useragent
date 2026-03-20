@@ -418,6 +418,28 @@ class AgentExchangeClient:
             logger.warning(f"get_closed_pnl failed for {symbol}: {e}")
             return None
 
+    async def get_recent_fills(self, symbol: str, limit: int = 5) -> List[Dict]:
+        """최근 체결 내역 조회 (실제 체결가 확인용)"""
+        try:
+            if self.exchange_id == "bybit":
+                result = await self.exchange.private_get_v5_execution_list({
+                    "category": "linear",
+                    "symbol": symbol,
+                    "limit": limit,
+                })
+                return result.get("result", {}).get("list", [])
+            else:
+                ccxt_symbol = self._to_ccxt_symbol(symbol)
+                trades = await self.exchange.fetch_my_trades(ccxt_symbol, limit=limit)
+                return [
+                    {"execPrice": str(t["price"]), "execQty": str(t["amount"]),
+                     "execTime": str(int(t["timestamp"]))}
+                    for t in trades
+                ]
+        except Exception as e:
+            logger.warning(f"get_recent_fills failed for {symbol}: {e}")
+            return []
+
     async def close(self):
         try:
             await self.exchange.close()

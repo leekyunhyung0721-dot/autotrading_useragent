@@ -163,7 +163,7 @@ async def _notify_manual_position(symbol: str, pos: dict, is_addon: bool):
         "entry_price": str(pos.get("entryPrice", "0")),
         "leverage": int(pos.get("leverage", 10)),
         "is_addon": is_addon,
-        "mark_price": str(pos.get("markPrice") or pos.get("entryPrice") or "0"),
+        "mark_price": str(pos.get("markPrice") or "0"),
     }
     await _post_to_central("/api/agent/manual-position", payload)
 
@@ -206,7 +206,7 @@ async def _notify_position_heartbeat(symbol: str, pos: dict):
     """MAE/MFE 업데이트용 heartbeat"""
     payload = {
         "symbol": symbol,
-        "mark_price": str(pos.get("markPrice") or pos.get("entryPrice") or "0"),
+        "mark_price": str(pos.get("markPrice") or "0"),
         "unrealized_pnl": str(pos.get("unrealizedPnl") or "0"),
     }
     await _post_to_central("/api/agent/position-heartbeat", payload)
@@ -214,10 +214,22 @@ async def _notify_position_heartbeat(symbol: str, pos: dict):
 
 async def _notify_tp_filled(symbol: str, pos: dict, prev_qty: float, curr_qty: float):
     """TP 부분 체결 콜백"""
+    qty_closed = round(prev_qty - curr_qty, 9)
+    client = get_exchange_client()
+    actual_exit_price = None
+    try:
+        fills = await client.get_recent_fills(symbol, limit=5)
+        if fills:
+            best = min(fills, key=lambda f: abs(float(f.get("execQty", 0)) - qty_closed))
+            actual_exit_price = best.get("execPrice")
+    except Exception as e:
+        logger.warning(f"[TpFilled] fills 조회 실패: {e}")
+
     payload = {
         "symbol": symbol,
-        "mark_price": str(pos.get("markPrice") or pos.get("entryPrice") or "0"),
-        "qty_closed": str(round(prev_qty - curr_qty, 9)),
+        "mark_price": str(pos.get("markPrice") or "0"),
+        "exit_price": str(actual_exit_price) if actual_exit_price else None,
+        "qty_closed": str(qty_closed),
         "remaining_qty": str(curr_qty),
     }
     await _post_to_central("/api/agent/tp-filled", payload)
