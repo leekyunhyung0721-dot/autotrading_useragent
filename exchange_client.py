@@ -484,7 +484,7 @@ class AgentExchangeClient:
                 else:
                     # SHORT: triggerPrice를 낮게 → 즉시 활성화 (테스트 전 LONG 케이스 우선 검증)
                     trigger_price = round(mark_price * 0.01, 4)
-                await self.exchange.private_mix_post_v2_mix_order_place_plan_order({
+                resp = await self.exchange.private_mix_post_v2_mix_order_place_plan_order({
                     "symbol": symbol,
                     "productType": "USDT-FUTURES",
                     "marginMode": "crossed",
@@ -497,6 +497,12 @@ class AgentExchangeClient:
                     "side": close_side,
                     "orderType": "market",
                 })
+                order_id = (resp.get("data") or {}).get("orderId", "unknown")
+                logger.info(
+                    f"[TrailingStop] Bitget track_plan placed: orderId={order_id}, "
+                    f"triggerPrice={trigger_price}, callbackRatio={callback_ratio}%, "
+                    f"side={close_side}, size={position.qty}"
+                )
             else:
                 logger.warning(f"[TrailingStop] {self.exchange_id} 미지원 — 스킵")
                 return False
