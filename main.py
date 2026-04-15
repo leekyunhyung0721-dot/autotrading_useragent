@@ -816,7 +816,7 @@ async def execute_order(request: Request, execute_req: ExecuteRequest):
 
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok"}
+    return {"status": "ok", "agent_variant": settings.agent_variant}
 
 
 # ===== 헬스체크 =====
